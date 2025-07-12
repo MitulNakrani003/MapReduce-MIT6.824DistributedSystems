@@ -5,14 +5,78 @@ import "net"
 import "os"
 import "net/rpc"
 import "net/http"
+import "time"
+import "sync"
 
+
+type TaskStatus int
+const (
+    Idle TaskStatus = iota
+    InProgress
+    Completed
+)
+
+type Task struct {
+    Status    TaskStatus
+    StartTime time.Time
+}
 
 type Master struct {
-	// Your definitions here.
-
+    mu         sync.Mutex
+    mapTasks   []Task
+    reduceTasks []Task
+    files      []string
+    nReduce    int
+    done       bool
 }
 
 // Your code here -- RPC handlers for the worker to call.
+func (m *Master) GetTask(args *TaskRequestArgs, reply *TaskRequestReply) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	//Assign map tasks first
+    for i, task := range m.mapTasks {
+        if task.Status == Idle {
+            
+            m.mapTasks[i].Status = InProgress
+            m.mapTasks[i].StartTime = time.Now()
+            
+            reply.TaskType = MapTask
+            reply.TaskID = i
+            reply.Filename = m.files[i]
+            reply.NReduce = m.nReduce
+
+            return nil
+        }
+    }
+
+	//If maps not done, tell worker to wait
+    for _, task := range m.mapTasks {
+        if task.Status != Completed {
+            reply.TaskType = WaitTask
+            return nil
+        }
+    }
+    
+    // Assign reduce tasks
+    for i, task := range m.reduceTasks {
+        if task.Status == Idle {
+            m.reduceTasks[i].Status = InProgress
+            m.reduceTasks[i].StartTime = time.Now()
+            reply.TaskType = ReduceTask
+            reply.TaskID = i
+            reply.ReduceID = i
+            return nil
+        }
+    }
+    
+    // All tasks completed
+    reply.TaskType = ExitTask
+    m.done = true
+    return nil
+
+}
 
 //
 // an example RPC handler.

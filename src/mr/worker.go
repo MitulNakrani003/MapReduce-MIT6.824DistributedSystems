@@ -32,8 +32,16 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 
 	// Your worker implementation here.
 
-	// uncomment to send the Example RPC to the master.
-	// CallExample()
+	for {
+        args := TaskRequestArgs{}
+        reply := TaskRequestReply{}
+        
+        if !call("Master.GetTask", &args, &reply) {
+            break
+        }
+
+		
+	}
 
 }
 

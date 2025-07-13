@@ -64,9 +64,11 @@ func (m *Master) GetTask(args *TaskRequestArgs, reply *TaskRequestReply) error {
         if task.Status == Idle {
             m.reduceTasks[i].Status = InProgress
             m.reduceTasks[i].StartTime = time.Now()
+
             reply.TaskType = ReduceTask
             reply.TaskID = i
             reply.ReduceID = i
+			
             return nil
         }
     }

@@ -1,10 +1,15 @@
 package mr
 
-import "fmt"
-import "log"
-import "net/rpc"
-import "hash/fnv"
-
+import (
+	"encoding/json"
+	"fmt"
+	"hash/fnv"
+	"io/ioutil"
+	"log"
+	"net/rpc"
+	"os"
+	"time"
+)
 
 //
 // Map functions return a slice of KeyValue.
@@ -40,9 +45,54 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
             break
         }
 
-		
+		switch reply.TaskType {
+        case MapTask:
+            performMapTask(mapf, reply.Filename, reply.TaskID, reply.NReduce)
+            // reportTaskCompletion
+        case ReduceTask:
+            // performReduceTask
+            // reportTaskCompletion
+        case WaitTask:
+            time.Sleep(1 * time.Second)
+        case ExitTask:
+            return
+        }
 	}
+}
 
+func performMapTask(mapf func(string, string) []KeyValue, filename string, mapID int, nReduce int) {
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatalf("cannot open %v", filename)
+	}
+	content, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Fatalf("cannot read %v", filename)
+	}
+	file.Close()
+
+	kva := mapf(filename, string(content))
+
+	// Partition results by reduce bucket
+    partitions := make([][]KeyValue, nReduce)
+    for _, kv := range kva {
+        p := ihash(kv.Key) % nReduce
+        partitions[p] = append(partitions[p], kv)
+    }
+
+	// Write partitions to temp files
+    for i := 0; i < nReduce; i++ {
+        tempFile, _ := ioutil.TempFile("", "mr-tmp-*")
+        // JSON encode results
+        enc := json.NewEncoder(tempFile)
+        for _, kv := range partitions[i] {
+            enc.Encode(&kv)
+        }
+        tempFile.Close()
+        // Atomically rename to final name
+        outFile := fmt.Sprintf("mr-%d-%d", mapID, i)
+        os.Rename(tempFile.Name(), outFile)
+    }
 }
 
 //

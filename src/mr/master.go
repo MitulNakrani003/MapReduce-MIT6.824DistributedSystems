@@ -68,7 +68,7 @@ func (m *Master) GetTask(args *TaskRequestArgs, reply *TaskRequestReply) error {
             reply.TaskType = ReduceTask
             reply.TaskID = i
             reply.ReduceID = i
-			
+
             return nil
         }
     }
@@ -126,11 +126,20 @@ func (m *Master) Done() bool {
 // nReduce is the number of reduce tasks to use.
 //
 func MakeMaster(files []string, nReduce int) *Master {
-	m := Master{}
+	m := Master{
+        files:      files,
+        nReduce:    nReduce,
+        mapTasks:   make([]Task, len(files)),
+        reduceTasks: make([]Task, nReduce),
+    }
+    for i := range m.mapTasks {
+        m.mapTasks[i].Status = Idle
+    }
+    for i := range m.reduceTasks {
+        m.reduceTasks[i].Status = Idle
+    }
 
-	// Your code here.
+    m.server()
 
-
-	m.server()
-	return &m
+    return &m
 }

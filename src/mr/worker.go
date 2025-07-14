@@ -89,7 +89,6 @@ func performMapTask(mapf func(string, string) []KeyValue, filename string, mapID
             enc.Encode(&kv)
         }
         tempFile.Close()
-        // Atomically rename to final name
         outFile := fmt.Sprintf("mr-%d-%d", mapID, i)
         os.Rename(tempFile.Name(), outFile)
     }
